@@ -140,12 +140,13 @@ func datasetBelongsToVMRID(dataset string, rid uint) bool {
 		return false
 	}
 
-	idx := strings.Index(dataset, "/sylve/virtual-machines/")
+	needle := config.SylveVMDatasetNeedle()
+	idx := strings.Index(dataset, needle)
 	if idx < 0 {
 		return false
 	}
 
-	rest := dataset[idx+len("/sylve/virtual-machines/"):]
+	rest := dataset[idx+len(needle):]
 	if rest == "" {
 		return false
 	}
@@ -221,12 +222,13 @@ func (s *Service) forceRemoveVMDBRecords(rid uint, cleanUpMacs bool, warnings *[
 
 	cleanupDatasetIDs := uniqueUintValues(datasetIDs)
 	patternDatasetIDs := make([]uint, 0)
+	patterns := config.SylveVMDatasetLikePatterns(rid)
 	if err := s.DB.Model(&vmModels.VMStorageDataset{}).
 		Where("name LIKE ? OR name LIKE ? OR name LIKE ? OR name LIKE ?",
-			fmt.Sprintf("%%/sylve/virtual-machines/%d", rid),
-			fmt.Sprintf("%%/sylve/virtual-machines/%d/%%", rid),
-			fmt.Sprintf("%%/sylve/virtual-machines/%d.%%", rid),
-			fmt.Sprintf("%%/sylve/virtual-machines/%d_%%", rid)).
+			patterns[0],
+			patterns[1],
+			patterns[2],
+			patterns[3]).
 		Pluck("id", &patternDatasetIDs).Error; err != nil {
 		appendForceRemoveWarning(warnings, rid, "failed_to_lookup_vm_storage_dataset_rows_by_name", err)
 	} else {

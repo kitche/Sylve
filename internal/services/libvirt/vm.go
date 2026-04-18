@@ -18,6 +18,7 @@ import (
 
 	"github.com/alchemillahq/gzfs"
 	"github.com/alchemillahq/sylve/internal"
+	"github.com/alchemillahq/sylve/internal/config"
 	"github.com/alchemillahq/sylve/internal/db/models"
 	jailModels "github.com/alchemillahq/sylve/internal/db/models/jail"
 	networkModels "github.com/alchemillahq/sylve/internal/db/models/network"
@@ -640,7 +641,7 @@ func (s *Service) hasStaleVMRootDatasetForCreate(ctx context.Context, rid uint) 
 			continue
 		}
 
-		datasetName := fmt.Sprintf("%s/sylve/virtual-machines/%d", poolName, rid)
+		datasetName := config.SylveVMRootDataset(poolName, rid)
 		ds, getErr := s.GZFS.ZFS.Get(ctx, datasetName, false)
 		if getErr != nil {
 			if isVMDatasetNotFoundError(getErr) {
@@ -684,8 +685,8 @@ func (s *Service) countStaleVMZFSDatasetsForCreate(ctx context.Context, rid uint
 			continue
 		}
 
-		vmPrefix := fmt.Sprintf("%s/sylve/virtual-machines", poolName)
-		vmRoot := fmt.Sprintf("%s/sylve/virtual-machines/%d", poolName, rid)
+		vmPrefix := config.SylveVMDatasetRootForPool(poolName)
+		vmRoot := config.SylveVMRootDataset(poolName, rid)
 
 		for _, datasetType := range []gzfs.DatasetType{gzfs.DatasetTypeFilesystem, gzfs.DatasetTypeVolume} {
 			datasets, listErr := s.GZFS.ZFS.ListByType(ctx, datasetType, true, vmPrefix)
@@ -726,12 +727,13 @@ func (s *Service) countStaleVMZFSDatasetsForCreate(ctx context.Context, rid uint
 
 func (s *Service) countStaleVMStorageDatasetRowsForCreate(rid uint) (int64, error) {
 	var count int64
+	patterns := config.SylveVMDatasetLikePatterns(rid)
 	if err := s.DB.Model(&vmModels.VMStorageDataset{}).
 		Where("name LIKE ? OR name LIKE ? OR name LIKE ? OR name LIKE ?",
-			fmt.Sprintf("%%/sylve/virtual-machines/%d", rid),
-			fmt.Sprintf("%%/sylve/virtual-machines/%d/%%", rid),
-			fmt.Sprintf("%%/sylve/virtual-machines/%d.%%", rid),
-			fmt.Sprintf("%%/sylve/virtual-machines/%d_%%", rid)).
+			patterns[0],
+			patterns[1],
+			patterns[2],
+			patterns[3]).
 		Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("failed_to_check_stale_vm_storage_dataset_rows: %w", err)
 	}
@@ -1168,9 +1170,9 @@ func (s *Service) RemoveVM(rid uint, cleanUpMacs bool, deleteRawDisks bool, dele
 
 	for _, storage := range vm.Storages {
 		if storage.Pool != "" {
-			vmRootDatasets[fmt.Sprintf("%s/sylve/virtual-machines/%d", storage.Pool, vm.RID)] = struct{}{}
+			vmRootDatasets[config.SylveVMRootDataset(storage.Pool, vm.RID)] = struct{}{}
 		} else if storage.Dataset.Pool != "" {
-			vmRootDatasets[fmt.Sprintf("%s/sylve/virtual-machines/%d", storage.Dataset.Pool, vm.RID)] = struct{}{}
+			vmRootDatasets[config.SylveVMRootDataset(storage.Dataset.Pool, vm.RID)] = struct{}{}
 		}
 
 		if storage.Type == vmModels.VMStorageTypeDiskImage {
@@ -1193,11 +1195,7 @@ func (s *Service) RemoveVM(rid uint, cleanUpMacs bool, deleteRawDisks bool, dele
 					ctx,
 					gzfs.DatasetTypeFilesystem,
 					false,
-					fmt.Sprintf("%s/sylve/virtual-machines/%d/raw-%d",
-						storage.Dataset.Pool,
-						vm.RID,
-						storage.ID,
-					),
+					config.SylveVMDatasetPath(storage.Dataset.Pool, vm.RID, fmt.Sprintf("raw-%d", storage.ID)),
 				)
 			}
 		case vmModels.VMStorageTypeZVol:
@@ -1206,11 +1204,7 @@ func (s *Service) RemoveVM(rid uint, cleanUpMacs bool, deleteRawDisks bool, dele
 					ctx,
 					gzfs.DatasetTypeVolume,
 					false,
-					fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d",
-						storage.Dataset.Pool,
-						vm.RID,
-						storage.ID,
-					),
+					config.SylveVMDatasetPath(storage.Dataset.Pool, vm.RID, fmt.Sprintf("zvol-%d", storage.ID)),
 				)
 			}
 		}

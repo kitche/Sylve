@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/alchemillahq/gzfs"
+	"github.com/alchemillahq/sylve/internal/config"
 	vmModels "github.com/alchemillahq/sylve/internal/db/models/vm"
 	libvirtServiceInterfaces "github.com/alchemillahq/sylve/internal/interfaces/services/libvirt"
 	"github.com/alchemillahq/sylve/internal/logger"
@@ -166,14 +167,14 @@ func (s *Service) CreateVMDisk(rid uint, storage vmModels.Storage, ctx context.C
 				ctx,
 				gzfs.DatasetTypeFilesystem,
 				false,
-				fmt.Sprintf("%s/sylve/virtual-machines/%d/raw-%d", target.Name, rid, storage.ID),
+				config.SylveVMDatasetPath(target.Name, rid, fmt.Sprintf("raw-%d", storage.ID)),
 			)
 		case vmModels.VMStorageTypeZVol:
 			datasets, err = s.GZFS.ZFS.ListByType(
 				ctx,
 				gzfs.DatasetTypeVolume,
 				false,
-				fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d", target.Name, rid, storage.ID),
+				config.SylveVMDatasetPath(target.Name, rid, fmt.Sprintf("zvol-%d", storage.ID)),
 			)
 		}
 
@@ -219,7 +220,7 @@ func (s *Service) CreateVMDisk(rid uint, storage vmModels.Storage, ctx context.C
 
 			dataset, err = s.GZFS.ZFS.CreateFilesystem(
 				ctx,
-				fmt.Sprintf("%s/sylve/virtual-machines/%d/raw-%d", target.Name, rid, storage.ID),
+				config.SylveVMDatasetPath(target.Name, rid, fmt.Sprintf("raw-%d", storage.ID)),
 				utils.MergeMaps(props, map[string]string{
 					"recordsize": recordSize,
 				}),
@@ -227,7 +228,7 @@ func (s *Service) CreateVMDisk(rid uint, storage vmModels.Storage, ctx context.C
 		case vmModels.VMStorageTypeZVol:
 			dataset, err = s.GZFS.ZFS.CreateVolume(
 				ctx,
-				fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d", target.Name, rid, storage.ID),
+				config.SylveVMDatasetPath(target.Name, rid, fmt.Sprintf("zvol-%d", storage.ID)),
 				uint64(storage.Size),
 				utils.MergeMaps(props, map[string]string{
 					"volblocksize": volblocksize,
@@ -397,18 +398,9 @@ func (s *Service) syncVMDisksWithDB(db *gorm.DB, rid uint) error {
 		var diskValue string
 
 		if storage.Type == vmModels.VMStorageTypeRaw {
-			diskValue = fmt.Sprintf("/%s/sylve/virtual-machines/%d/raw-%d/%d.img",
-				storage.Pool,
-				rid,
-				storage.ID,
-				storage.ID,
-			)
+			diskValue = config.SylveVMMountpointPath(storage.Pool, rid, fmt.Sprintf("raw-%d/%d.img", storage.ID, storage.ID))
 		} else if storage.Type == vmModels.VMStorageTypeZVol {
-			diskValue = fmt.Sprintf("/dev/zvol/%s/sylve/virtual-machines/%d/zvol-%d",
-				storage.Pool,
-				rid,
-				storage.ID,
-			)
+			diskValue = config.SylveVMZvolPath(storage.Pool, rid, fmt.Sprintf("zvol-%d", storage.ID))
 		} else if storage.Type == vmModels.VMStorageTypeDiskImage {
 			diskValue, err = s.FindISOByUUID(storage.DownloadUUID, true)
 			if err != nil {
@@ -525,18 +517,9 @@ func (s *Service) RemoveStorageXML(rid uint, storage vmModels.Storage) error {
 			return fmt.Errorf("failed_to_find_iso_by_uuid: %w", err)
 		}
 	} else if storage.Type == vmModels.VMStorageTypeRaw {
-		filePath = fmt.Sprintf("%s/sylve/virtual-machines/%d/raw-%d/%d.img",
-			storage.Pool,
-			rid,
-			storage.ID,
-			storage.ID,
-		)
+		filePath = config.SylveVMMountpointPath(storage.Pool, rid, fmt.Sprintf("raw-%d/%d.img", storage.ID, storage.ID))
 	} else if storage.Type == vmModels.VMStorageTypeZVol {
-		filePath = fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d",
-			storage.Pool,
-			rid,
-			storage.ID,
-		)
+		filePath = config.SylveVMDatasetPath(storage.Pool, rid, fmt.Sprintf("zvol-%d", storage.ID))
 	} else if storage.Type == vmModels.VMStorageTypeFilesystem {
 		filePath = strings.TrimSpace(storage.FilesystemTarget) + "="
 	}
@@ -623,10 +606,10 @@ func (s *Service) destroyManagedStorageDataset(ctx context.Context, rid uint, st
 	switch storage.Type {
 	case vmModels.VMStorageTypeRaw:
 		datasetType = gzfs.DatasetTypeFilesystem
-		datasetPath = fmt.Sprintf("%s/sylve/virtual-machines/%d/raw-%d", storage.Pool, rid, storage.ID)
+		datasetPath = config.SylveVMDatasetPath(storage.Pool, rid, fmt.Sprintf("raw-%d", storage.ID))
 	case vmModels.VMStorageTypeZVol:
 		datasetType = gzfs.DatasetTypeVolume
-		datasetPath = fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d", storage.Pool, rid, storage.ID)
+		datasetPath = config.SylveVMDatasetPath(storage.Pool, rid, fmt.Sprintf("zvol-%d", storage.ID))
 	default:
 		return nil
 	}
@@ -876,12 +859,7 @@ func (s *Service) storageImportTx(
 		}
 		createdManagedDataset = true
 
-		datasetPath := fmt.Sprintf("/%s/sylve/virtual-machines/%d/raw-%d/%d.img",
-			storage.Pool,
-			vm.RID,
-			storage.ID,
-			storage.ID,
-		)
+		datasetPath := config.SylveVMMountpointPath(storage.Pool, vm.RID, fmt.Sprintf("raw-%d/%d.img", storage.ID, storage.ID))
 
 		tempDatasetPath := fmt.Sprintf("%s.importing", datasetPath)
 		rawTempPath = tempDatasetPath
@@ -949,11 +927,7 @@ func (s *Service) storageImportTx(
 		createdStorageRecord = true
 
 		if sourcePool == *req.Pool {
-			targetDatasetPath := fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d",
-				*req.Pool,
-				vm.RID,
-				storage.ID,
-			)
+			targetDatasetPath := config.SylveVMDatasetPath(*req.Pool, vm.RID, fmt.Sprintf("zvol-%d", storage.ID))
 
 			dataset, err := found.Rename(ctx, targetDatasetPath, false)
 			if err != nil || dataset == nil {
@@ -1000,11 +974,7 @@ func (s *Service) storageImportTx(
 				}
 			}()
 
-			targetDatasetPath := fmt.Sprintf("%s/sylve/virtual-machines/%d/zvol-%d",
-				*req.Pool,
-				vm.RID,
-				storage.ID,
-			)
+			targetDatasetPath := config.SylveVMDatasetPath(*req.Pool, vm.RID, fmt.Sprintf("zvol-%d", storage.ID))
 
 			targetDatasets, err := s.GZFS.ZFS.ListByType(
 				ctx,
@@ -1124,12 +1094,7 @@ func (s *Service) storageNewTx(
 		}
 		createdManagedDataset = true
 
-		diskPath := fmt.Sprintf("/%s/sylve/virtual-machines/%d/raw-%d/%d.img",
-			storage.Pool,
-			vm.RID,
-			storage.ID,
-			storage.ID,
-		)
+		diskPath := config.SylveVMMountpointPath(storage.Pool, vm.RID, fmt.Sprintf("raw-%d/%d.img", storage.ID, storage.ID))
 
 		exists, err := utils.FileExists(diskPath)
 		if err != nil {
@@ -1358,12 +1323,7 @@ func (s *Service) StorageUpdate(req libvirtServiceInterfaces.StorageUpdateReques
 
 		switch current.Type {
 		case vmModels.VMStorageTypeRaw:
-			imagePath := fmt.Sprintf("/%s/sylve/virtual-machines/%d/raw-%d/%d.img",
-				current.Pool,
-				vm.RID,
-				current.ID,
-				current.ID,
-			)
+			imagePath := config.SylveVMMountpointPath(current.Pool, vm.RID, fmt.Sprintf("raw-%d/%d.img", current.ID, current.ID))
 
 			if err := utils.CreateOrResizeFile(imagePath, newSize); err != nil {
 				return fmt.Errorf("failed_to_resize_raw_image_file: %w", err)
@@ -1456,7 +1416,7 @@ func (s *Service) CreateStorageParent(rid uint, poolName string, ctx context.Con
 			continue
 		}
 
-		target := fmt.Sprintf("%s/sylve/virtual-machines/%d", pool.Name, rid)
+		target := config.SylveVMRootDataset(pool.Name, rid)
 		datasets, _ := s.GZFS.ZFS.ListByType(
 			ctx,
 			gzfs.DatasetTypeFilesystem,

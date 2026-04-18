@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alchemillahq/sylve/internal/config"
 	"github.com/alchemillahq/sylve/internal/db/models"
 	networkModels "github.com/alchemillahq/sylve/internal/db/models/network"
 	vmModels "github.com/alchemillahq/sylve/internal/db/models/vm"
@@ -477,7 +478,7 @@ func resolveVMRootDatasets(vm *vmModels.VM) ([]string, error) {
 			continue
 		}
 
-		rootDataset := fmt.Sprintf("%s/sylve/virtual-machines/%d", pool, vm.RID)
+		rootDataset := config.SylveVMRootDataset(pool, vm.RID)
 		rootsByName[rootDataset] = struct{}{}
 	}
 
@@ -1180,7 +1181,7 @@ func prepareRestoredVMStorages(tx *gorm.DB, rid uint, vmID uint, storages []vmMo
 				if cleaned.Type == vmModels.VMStorageTypeZVol {
 					prefix = "zvol"
 				}
-				datasetName = fmt.Sprintf("%s/sylve/virtual-machines/%d/%s-%d", cleaned.Pool, rid, prefix, cleaned.ID)
+				datasetName = config.SylveVMDatasetPath(cleaned.Pool, rid, fmt.Sprintf("%s-%d", prefix, cleaned.ID))
 			}
 
 			if cleaned.Pool == "" {

@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/alchemillahq/gzfs"
+	"github.com/alchemillahq/sylve/internal/config"
 	"github.com/alchemillahq/sylve/internal/db/models"
 	vmModels "github.com/alchemillahq/sylve/internal/db/models/vm"
 	libvirtServiceInterfaces "github.com/alchemillahq/sylve/internal/interfaces/services/libvirt"
@@ -268,7 +269,7 @@ func (s *Service) WriteVMJson(rid uint) error {
 			continue
 		}
 
-		sylveDir := fmt.Sprintf("/%s/sylve/virtual-machines/%d/.sylve", storage.Pool, rid)
+		sylveDir := config.SylveVMMountpointPath(storage.Pool, rid, ".sylve")
 		vmJsonPath := filepath.Join(sylveDir, "vm.json")
 
 		if err := os.MkdirAll(sylveDir, 0755); err != nil {
