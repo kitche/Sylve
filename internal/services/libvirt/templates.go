@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alchemillahq/sylve/internal/config"
 	clusterModels "github.com/alchemillahq/sylve/internal/db/models/cluster"
 	jailModels "github.com/alchemillahq/sylve/internal/db/models/jail"
 	networkModels "github.com/alchemillahq/sylve/internal/db/models/network"
@@ -61,7 +62,7 @@ func vmTemplateStorageDatasetPath(pool string, templateID uint, storageType vmMo
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/sylve/virtual-machines/templates/%d/%s-%d", pool, templateID, prefix, sourceStorageID), nil
+	return fmt.Sprintf("%s/templates/%d/%s-%d", config.SylveVMDatasetRootForPool(pool), templateID, prefix, sourceStorageID), nil
 }
 
 func vmTargetStorageDatasetPath(pool string, rid uint, storageType vmModels.VMStorageType, storageID uint) (string, error) {
@@ -69,7 +70,7 @@ func vmTargetStorageDatasetPath(pool string, rid uint, storageType vmModels.VMSt
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/sylve/virtual-machines/%d/%s-%d", pool, rid, prefix, storageID), nil
+	return config.SylveVMDatasetPath(pool, rid, fmt.Sprintf("%s-%d", prefix, storageID)), nil
 }
 
 func datasetEstimatedUsed(used, referenced uint64) uint64 {
@@ -241,7 +242,7 @@ func vmStorageSourceDatasetName(storage vmModels.Storage, rid uint) (string, err
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/sylve/virtual-machines/%d/%s-%d", pool, rid, prefix, storage.ID), nil
+	return config.SylveVMDatasetPath(pool, rid, fmt.Sprintf("%s-%d", prefix, storage.ID)), nil
 }
 
 func templateHasCloudInit(template vmModels.VMTemplate) bool {
@@ -630,7 +631,7 @@ func (s *Service) preflightVMTemplateResources(
 		for _, target := range targets {
 			requiredByPool[pool] += perTarget
 
-			rootDataset := fmt.Sprintf("%s/sylve/virtual-machines/%d", pool, target.RID)
+			rootDataset := config.SylveVMRootDataset(pool, target.RID)
 			targetRootDatasets[rootDataset] = struct{}{}
 		}
 	}
@@ -1236,7 +1237,7 @@ func (s *Service) ConvertVMToTemplate(
 			return err
 		}
 
-		parentDataset := fmt.Sprintf("%s/sylve/virtual-machines/templates/%d", storage.Pool, template.ID)
+		parentDataset := fmt.Sprintf("%s/templates/%d", config.SylveVMDatasetRootForPool(storage.Pool), template.ID)
 		if err := s.ensureDatasetPath(ctx, parentDataset); err != nil {
 			return fmt.Errorf("failed_to_prepare_template_parent_dataset: %w", err)
 		}

@@ -118,9 +118,9 @@ func (s *Service) CreateVmXML(vm vmModels.VM, vmPath string) (string, error) {
 			var disk string
 
 			if storage.Type == vmModels.VMStorageTypeRaw {
-				disk = fmt.Sprintf("/%s/sylve/virtual-machines/%d/raw-%d/%d.img", storage.Pool, vm.RID, storage.ID, storage.ID)
+				disk = config.SylveVMMountpointPath(storage.Pool, vm.RID, fmt.Sprintf("raw-%d/%d.img", storage.ID, storage.ID))
 			} else if storage.Type == vmModels.VMStorageTypeZVol {
-				disk = fmt.Sprintf("/dev/zvol/%s/sylve/virtual-machines/%d/zvol-%d", storage.Pool, vm.RID, storage.ID)
+				disk = config.SylveVMZvolPath(storage.Pool, vm.RID, fmt.Sprintf("zvol-%d", storage.ID))
 			} else if storage.Type == vmModels.VMStorageTypeDiskImage {
 				var err error
 				disk, err = s.FindISOByUUID(storage.DownloadUUID, true)

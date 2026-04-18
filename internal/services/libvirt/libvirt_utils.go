@@ -719,24 +719,17 @@ func (s *Service) FlashCloudInitMediaToDisk(vm vmModels.VM) error {
 	var storagePath string
 
 	if diskStorage.Type == vmModels.VMStorageTypeRaw {
-		storagePath = fmt.Sprintf(
-			"/%s/sylve/virtual-machines/%d/raw-%d/%d.img",
+		storagePath = config.SylveVMMountpointPath(
 			diskStorage.Dataset.Pool,
 			vm.RID,
-			diskStorage.ID,
-			diskStorage.ID,
+			fmt.Sprintf("raw-%d/%d.img", diskStorage.ID, diskStorage.ID),
 		)
 
 		if _, err := os.Stat(storagePath); err != nil {
 			return fmt.Errorf("disk_image_not_found: %w", err)
 		}
 	} else if diskStorage.Type == vmModels.VMStorageTypeZVol {
-		storagePath = fmt.Sprintf(
-			"/dev/zvol/%s/sylve/virtual-machines/%d/zvol-%d",
-			diskStorage.Dataset.Pool,
-			vm.RID,
-			diskStorage.ID,
-		)
+		storagePath = config.SylveVMZvolPath(diskStorage.Dataset.Pool, vm.RID, fmt.Sprintf("zvol-%d", diskStorage.ID))
 
 		if _, err := os.Stat(storagePath); err != nil {
 			return fmt.Errorf("zvol_not_found: %w", err)
