@@ -26,13 +26,24 @@ func requiredSylveDatasets(rootDataset string) []string {
 	}
 }
 
+func requiredSylveDatasetMountpoint(rootDataset, rootMountpoint, dataset string) string {
+	suffix := strings.TrimPrefix(dataset, rootDataset)
+	suffix = strings.TrimPrefix(suffix, "/")
+	if suffix == "" {
+		return rootMountpoint
+	}
+
+	return fmt.Sprintf("%s/%s", strings.TrimRight(rootMountpoint, "/"), suffix)
+}
+
 func (s *Service) ensureSylveDatasetsOnPool(ctx context.Context, poolName string) ([]*gzfs.Dataset, error) {
 	var created []*gzfs.Dataset
 	rootDataset := config.GetSylveDatasetRoot()
+	rootMountpoint := config.GetSylveMountpointRoot(poolName)
 
 	for _, dataset := range requiredSylveDatasets(rootDataset) {
 		fullDatasetName := fmt.Sprintf("%s/%s", poolName, dataset)
-		mountpoint := fmt.Sprintf("/%s/%s", poolName, dataset)
+		mountpoint := requiredSylveDatasetMountpoint(rootDataset, rootMountpoint, dataset)
 
 		found, err := s.GZFS.ZFS.Get(ctx, fullDatasetName, false)
 		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "does not exist") {

@@ -55,3 +55,55 @@ func TestRequiredSylveDatasets(t *testing.T) {
 		})
 	}
 }
+
+func TestRequiredSylveDatasetMountpoint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		rootDataset    string
+		rootMountpoint string
+		dataset        string
+		want           string
+	}{
+		{
+			name:           "root_dataset_uses_root_mountpoint",
+			rootDataset:    "sylve",
+			rootMountpoint: "/zroot/Sylve",
+			dataset:        "sylve",
+			want:           "/zroot/Sylve",
+		},
+		{
+			name:           "child_dataset_appends_suffix",
+			rootDataset:    "sylve",
+			rootMountpoint: "/zroot/Sylve",
+			dataset:        "sylve/jails",
+			want:           "/zroot/Sylve/jails",
+		},
+		{
+			name:           "nested_root_dataset_keeps_relative_suffix",
+			rootDataset:    "custom/root",
+			rootMountpoint: "/mnt/Sylve",
+			dataset:        "custom/root/bootstraps",
+			want:           "/mnt/Sylve/bootstraps",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := requiredSylveDatasetMountpoint(tt.rootDataset, tt.rootMountpoint, tt.dataset)
+			if got != tt.want {
+				t.Fatalf("requiredSylveDatasetMountpoint(%q, %q, %q) = %q, want %q",
+					tt.rootDataset,
+					tt.rootMountpoint,
+					tt.dataset,
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}

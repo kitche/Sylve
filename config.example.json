@@ -15,7 +15,8 @@
         "reset": false
     },
     "zfs": {
-        "sylveDataset": "sylve"
+        "sylveDataset": "sylve",
+        "sylveMountpoint": ""
     },
     "btt": {
         "rpc": {

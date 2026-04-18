@@ -43,7 +43,8 @@ type AuthConfig struct {
 }
 
 type ZFSConfig struct {
-	SylveDataset string `json:"sylveDataset"`
+	SylveDataset    string `json:"sylveDataset"`
+	SylveMountpoint string `json:"sylveMountpoint"`
 }
 
 type Environment string

@@ -91,6 +91,29 @@ func GetSylveDatasetRoot() string {
 	return dataset
 }
 
+func GetSylveMountpointRoot(poolName string) string {
+	if ParsedConfig == nil {
+		return fmt.Sprintf("/%s/%s", poolName, defaultSylveDataset)
+	}
+
+	datasetRoot := GetSylveDatasetRoot()
+	mountpoint := strings.TrimSpace(ParsedConfig.ZFS.SylveMountpoint)
+	if mountpoint == "" {
+		return fmt.Sprintf("/%s/%s", poolName, datasetRoot)
+	}
+
+	mountpoint = strings.TrimRight(mountpoint, "/")
+	if mountpoint == "" {
+		return fmt.Sprintf("/%s/%s", poolName, datasetRoot)
+	}
+
+	if strings.HasPrefix(mountpoint, "/") {
+		return mountpoint
+	}
+
+	return fmt.Sprintf("/%s/%s", poolName, strings.TrimLeft(mountpoint, "/"))
+}
+
 func GetDataPath() (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
