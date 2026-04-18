@@ -14,6 +14,9 @@
     "raft": {
         "reset": false
     },
+    "zfs": {
+        "sylveDataset": "sylve"
+    },
     "btt": {
         "rpc": {
             "enabled": false,

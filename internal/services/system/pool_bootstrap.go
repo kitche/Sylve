@@ -14,19 +14,23 @@ import (
 	"strings"
 
 	"github.com/alchemillahq/gzfs"
+	"github.com/alchemillahq/sylve/internal/config"
 )
 
-var requiredSylveDatasets = []string{
-	"sylve",
-	"sylve/virtual-machines",
-	"sylve/jails",
-	"sylve/bootstraps",
+func requiredSylveDatasets(rootDataset string) []string {
+	return []string{
+		rootDataset,
+		fmt.Sprintf("%s/virtual-machines", rootDataset),
+		fmt.Sprintf("%s/jails", rootDataset),
+		fmt.Sprintf("%s/bootstraps", rootDataset),
+	}
 }
 
 func (s *Service) ensureSylveDatasetsOnPool(ctx context.Context, poolName string) ([]*gzfs.Dataset, error) {
 	var created []*gzfs.Dataset
+	rootDataset := config.GetSylveDatasetRoot()
 
-	for _, dataset := range requiredSylveDatasets {
+	for _, dataset := range requiredSylveDatasets(rootDataset) {
 		fullDatasetName := fmt.Sprintf("%s/%s", poolName, dataset)
 		mountpoint := fmt.Sprintf("/%s/%s", poolName, dataset)
 

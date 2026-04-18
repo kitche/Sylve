@@ -42,6 +42,10 @@ type AuthConfig struct {
 	EnablePAM bool `json:"enablePAM"`
 }
 
+type ZFSConfig struct {
+	SylveDataset string `json:"sylveDataset"`
+}
+
 type Environment string
 
 const (
@@ -64,6 +68,7 @@ type SylveConfig struct {
 	Raft          Raft            `json:"raft"`
 	BTT           BTT             `json:"btt"`
 	Auth          AuthConfig      `json:"auth"`
+	ZFS           ZFSConfig       `json:"zfs"`
 }
 
 type APIResponse[T any] struct {

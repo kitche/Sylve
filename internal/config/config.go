@@ -24,6 +24,8 @@ import (
 var ParsedConfig *internal.SylveConfig
 var ConfigPath string
 
+const defaultSylveDataset = "sylve"
+
 func ParseConfig(path string) *internal.SylveConfig {
 	ConfigPath = path
 	file, err := os.Open(path)
@@ -43,6 +45,9 @@ func ParseConfig(path string) *internal.SylveConfig {
 	ParsedConfig = &internal.SylveConfig{
 		Auth: internal.AuthConfig{
 			EnablePAM: true,
+		},
+		ZFS: internal.ZFSConfig{
+			SylveDataset: defaultSylveDataset,
 		},
 	}
 	err = decoder.Decode(ParsedConfig)
@@ -70,6 +75,20 @@ func IsPAMEnabled() bool {
 	}
 
 	return ParsedConfig.Auth.EnablePAM
+}
+
+func GetSylveDatasetRoot() string {
+	if ParsedConfig == nil {
+		return defaultSylveDataset
+	}
+
+	dataset := strings.TrimSpace(ParsedConfig.ZFS.SylveDataset)
+	dataset = strings.Trim(dataset, "/")
+	if dataset == "" {
+		return defaultSylveDataset
+	}
+
+	return dataset
 }
 
 func GetDataPath() (string, error) {
